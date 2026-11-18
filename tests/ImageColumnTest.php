@@ -283,6 +283,26 @@ final class ImageColumnTest extends TestCase {
 		$this->assertStringContainsString( 'float:none', $style );
 	}
 
+	/**
+	 * On a phone core lays each cell's column name over its left side. An
+	 * image column has no room for "Image" beside its thumbnail, so the
+	 * label is taken off -- with a selector that outranks core's.
+	 */
+	public function test_an_image_column_is_not_labelled_on_a_phone(): void {
+		$GLOBALS['rc_screen'] = (object) [ 'post_type' => 'download', 'base' => 'edit' ];
+
+		$columns = new Post( [ 'thumb' => [ 'label' => 'Image', 'image' => true ] ], 'download' );
+
+		ob_start();
+		$columns->add_custom_column_styles();
+		$style = (string) ob_get_clean();
+
+		$this->assertStringContainsString(
+			'@media screen and (max-width:782px){.wp-list-table tr:not(.inline-edit-row):not(.no-items) td.column-thumb:not(.column-primary)::before{display:none}}',
+			$style
+		);
+	}
+
 	public function test_a_plain_column_gets_no_image_rules(): void {
 		$GLOBALS['rc_screen'] = (object) [ 'post_type' => 'download', 'base' => 'edit' ];
 
@@ -293,6 +313,7 @@ final class ImageColumnTest extends TestCase {
 		$style = (string) ob_get_clean();
 
 		$this->assertStringNotContainsString( 'img{', $style );
+		$this->assertStringNotContainsString( '::before', $style );
 	}
 
 	// -- Interaction with what was already there --------------------------

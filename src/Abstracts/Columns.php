@@ -314,6 +314,17 @@ abstract class Columns {
 					'.column-%1$s img{display:block;margin:0;float:none;max-width:100%%;height:auto}',
 					$class
 				);
+
+				// On a phone core labels every cell but the title's with its
+				// column's name, laid over the cell's left side -- which a
+				// thumbnail column 52px wide, placed before the title as it
+				// usually is, cannot hold: "Image" was drawn over the dash
+				// and the picture. A thumbnail needs no label. The selector
+				// carries core's own specificity and one more, to win.
+				$rules .= sprintf(
+					'@media screen and (max-width:782px){.wp-list-table tr:not(.inline-edit-row):not(.no-items) td.column-%1$s:not(.column-primary)::before{display:none}}',
+					$class
+				);
 			}
 
 			if ( '' === $width ) {
