@@ -173,6 +173,35 @@ abstract class ListFilters {
 	}
 
 	/**
+	 * Add these filters' clauses to a meta or tax query already on the query.
+	 *
+	 * Another plugin, or a filter's own `query_callback`, may have set one
+	 * first. Replacing it would silently drop that plugin's restriction, so
+	 * both must hold: what was there stays as one nested clause, ANDed with
+	 * ours. With nothing there the clauses go in as they always have.
+	 *
+	 * @param mixed $existing The meta_query or tax_query already set.
+	 * @param array $clauses  This request's clauses, ANDed together.
+	 *
+	 * @return array
+	 */
+	protected static function merge_clauses( $existing, array $clauses ): array {
+		if ( count( $clauses ) > 1 ) {
+			$clauses['relation'] = 'AND';
+		}
+
+		if ( empty( $existing ) || ! is_array( $existing ) ) {
+			return $clauses;
+		}
+
+		return [
+			'relation' => 'AND',
+			$existing,
+			$clauses,
+		];
+	}
+
+	/**
 	 * Load the necessary hooks for list filters.
 	 *
 	 * @return void

@@ -174,7 +174,9 @@ A choice is applied in this order: the `query_callback`, given the query and
 the chosen value (on users, an object with the same `set()` and `get()` over
 the list table's query arguments); a tax query by slug for a `taxonomy`
 filter; otherwise a meta query on the filter's own key. Several filters are
-ANDed. A taxonomy's terms are read when the table is drawn, so a taxonomy
+ANDed, and ANDed with any meta or tax query another plugin (or a
+`query_callback`) already set, which stays as it was as one nested clause
+rather than being replaced. A taxonomy's terms are read when the table is drawn, so a taxonomy
 registered after the filter still fills it; `hide_empty` (default `true`)
 leaves out terms with nothing in them. A filter needs `capability` (default
 `manage_options`) to show and to apply. The users table has no Filter button

@@ -114,20 +114,14 @@ class Post extends ListFilters {
 			}
 		}
 
-		// Apply meta query with AND relation if we have multiple filters
+		// ANDed with each other, and with any meta or tax query another
+		// plugin (or a query_callback) already put on the query.
 		if ( ! empty( $meta_query ) ) {
-			if ( count( $meta_query ) > 1 ) {
-				$meta_query['relation'] = 'AND';
-			}
-			$query->set( 'meta_query', $meta_query );
+			$query->set( 'meta_query', self::merge_clauses( $query->get( 'meta_query' ), $meta_query ) );
 		}
 
-		// Apply tax query with AND relation if we have multiple filters
 		if ( ! empty( $tax_query ) ) {
-			if ( count( $tax_query ) > 1 ) {
-				$tax_query['relation'] = 'AND';
-			}
-			$query->set( 'tax_query', $tax_query );
+			$query->set( 'tax_query', self::merge_clauses( $query->get( 'tax_query' ), $tax_query ) );
 		}
 	}
 }

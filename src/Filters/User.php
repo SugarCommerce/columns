@@ -80,9 +80,9 @@ class User extends ListFilters {
 	public function modify_list_table_query( $args ): array {
 		$filters = self::get_filters( $this->object_type, $this->object_subtype );
 
-		// Initialize meta_query array for AND logic
-		$meta_query       = [];
-		$has_meta_filters = false;
+		// Initialize arrays for AND logic
+		$meta_query = [];
+		$tax_query  = [];
 
 		foreach ( $filters as $key => $filter ) {
 			// Skip if filter not set or empty - check REQUEST
@@ -104,35 +104,29 @@ class User extends ListFilters {
 				$args = $query_wrapper->get_args();
 			} elseif ( ! empty( $filter['taxonomy'] ) ) {
 				// Priority 2: Taxonomy query
-				if ( ! isset( $args['tax_query'] ) ) {
-					$args['tax_query'] = [];
-				}
-				$args['tax_query'][] = [
+				$tax_query[] = [
 					'taxonomy' => $filter['taxonomy'],
 					'field'    => 'slug',
 					'terms'    => $value,
 				];
-				// Set relation to AND if multiple tax queries
-				if ( count( $args['tax_query'] ) > 1 && ! isset( $args['tax_query']['relation'] ) ) {
-					$args['tax_query']['relation'] = 'AND';
-				}
 			} else {
 				// Priority 3: Auto meta query (use filter key as meta_key)
-				$meta_query[]     = [
+				$meta_query[] = [
 					'key'     => $key,
 					'value'   => $value,
 					'compare' => '=',
 				];
-				$has_meta_filters = true;
 			}
 		}
 
-		// Apply meta query with AND relation if we have multiple filters
-		if ( $has_meta_filters ) {
-			if ( count( $meta_query ) > 1 ) {
-				$meta_query['relation'] = 'AND';
-			}
-			$args['meta_query'] = $meta_query;
+		// ANDed with each other, and with any meta or tax query another
+		// plugin (or a query_callback) already put in the arguments.
+		if ( ! empty( $meta_query ) ) {
+			$args['meta_query'] = self::merge_clauses( $args['meta_query'] ?? null, $meta_query );
+		}
+
+		if ( ! empty( $tax_query ) ) {
+			$args['tax_query'] = self::merge_clauses( $args['tax_query'] ?? null, $tax_query );
 		}
 
 		return $args;
