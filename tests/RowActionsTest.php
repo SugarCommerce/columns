@@ -336,4 +336,23 @@ final class RowActionsTest extends TestCase {
 			);
 		}
 	}
+
+	/**
+	 * A plugin of the family prefixes with a namespace that also starts
+	 * "SugarCommerce", and its build is still its own; a plugin outside the
+	 * family keeps the name its first segment always gave it.
+	 */
+	public function test_a_family_plugin_build_is_not_taken_for_the_library(): void {
+		$this->assertSame(
+			'sugarcommerce-playground-vendor-sugarcommerce-columns',
+			Runtime::prefix_for( 'SugarCommerce\\Playground\\Vendor\\SugarCommerce\\Columns\\Utils' )
+		);
+		$this->assertNotSame(
+			Runtime::prefix_for( 'SugarCommerce\\Playground\\Vendor\\SugarCommerce\\Columns\\Utils' ),
+			Runtime::prefix_for( 'SugarCommerce\\Members\\Vendor\\SugarCommerce\\Columns\\Utils' ),
+			'Two family plugins share a name.'
+		);
+		$this->assertSame( 'sugarcart-sugarcommerce-columns', Runtime::prefix_for( 'SugarCart\\Vendor\\SugarCommerce\\Columns\\Utils' ) );
+		$this->assertSame( 'sugarcommerce-columns', Runtime::prefix_for( '\\SugarCommerce\\Columns\\Utils\\' ) );
+	}
 }
