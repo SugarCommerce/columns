@@ -267,12 +267,14 @@ abstract class BulkActions {
 			);
 		}
 
-		$class = $is_error ? 'error' : 'success';
-
-		printf(
-			'<div class="notice notice-%s is-dismissible"><p>%s</p></div>',
-			esc_attr( $class ),
-			esc_html( $message )
+		// Core's markup, so its wp_admin_notice_args and _markup filters
+		// apply. Core does not escape the message; it is escaped here.
+		wp_admin_notice(
+			esc_html( $message ),
+			[
+				'type'        => $is_error ? 'error' : 'success',
+				'dismissible' => true,
+			]
 		);
 	}
 }

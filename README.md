@@ -207,7 +207,9 @@ BulkActions::posts( [ 'post', 'page' ], [
 integers. Return `[ 'message' => …, 'success' => false ]` to say something,
 or anything else for the default "N items processed."; a thrown exception's
 message is shown as an error. The action is offered only to those with its
-`capability` (default `manage_options`), and checked again when it runs.
+`capability` (default `manage_options`), and checked again when it runs. The
+notice is core's own (`wp_admin_notice()`), so the `wp_admin_notice_args` and
+`wp_admin_notice_markup` filters reach it.
 
 ## Row actions
 
@@ -317,8 +319,9 @@ load it.
 package. The global functions are the four front doors; every configuration
 key, the table classes, the abstracts edd-registrars extends, and the
 `bulk_action_*` query arguments keep their names. It no longer needs
-`wp-array-utils` or `wp-composer-assets`, and `wp-field-kit` is now
-`sugarcommerce/fields` (still suggested).
+`wp-array-utils`; `wp-composer-assets` is now `sugarcommerce/plugin`, whose
+`SugarCommerce\Plugin\Assets` is the one home for a package's asset URLs; and
+`wp-field-kit` is now `sugarcommerce/fields` (still suggested).
 
 | Old | New |
 |---|---|
@@ -343,6 +346,8 @@ key, the table classes, the abstracts edd-registrars extends, and the
 | `window.rowActionsConfig`, `window.RowActionHandler` | `window.SugarCommerceColumns[handle]` (the link's `data-config`), `window.SugarCommerceColumnsRowActions` |
 | icon class `arraypress-icon` | `sugarcommerce-icon` (`Abstracts\RowActions::ICON_CLASS`, the same as sugarcommerce/fields') |
 | text domain `arraypress` | `sugarcommerce` |
+| `SugarCommerce\Columns\Support\Assets::style()` / `::script()` / `::resolve()` / `::url_of()` | removed: `SugarCommerce\Plugin\Assets::enqueue_style( $handle, __FILE__, $file )` / `::enqueue_script()` / `::resolve()` / `::path_to_url()` |
+| bulk action notice printed by hand | `wp_admin_notice()`, the same markup |
 
 Fixed on the way:
 
@@ -371,6 +376,7 @@ the `bulk_action_done`, `bulk_action_count`, `bulk_action_message` and
 
 * PHP 8.3 or later
 * WordPress 7.1 or later
+* `sugarcommerce/plugin` (its `Assets` finds this package's `assets/` URL)
 
 ## License
 

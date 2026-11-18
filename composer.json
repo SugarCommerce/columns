@@ -11,7 +11,8 @@
     }
   ],
   "require": {
-    "php": ">=8.3"
+    "php": ">=8.3",
+    "sugarcommerce/plugin": "dev-main"
   },
   "require-dev": {
     "phpcompatibility/phpcompatibility-wp": "^2.1",
@@ -24,6 +25,13 @@
     "sugarcommerce/fields": "Draws a row action icon given as `set:name` (`heroicons-outline:star`) as inline SVG."
   },
   "repositories": [
+    {
+      "type": "path",
+      "url": "../plugin",
+      "options": {
+        "symlink": false
+      }
+    },
     {
       "type": "path",
       "url": "../fields",

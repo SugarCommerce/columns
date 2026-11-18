@@ -17,10 +17,10 @@ declare( strict_types=1 );
 
 namespace SugarCommerce\Columns\Abstracts;
 
-use SugarCommerce\Columns\Support\Assets;
 use SugarCommerce\Columns\Support\Position;
 use SugarCommerce\Columns\Utils\Runtime;
 use SugarCommerce\Fields\Icons\Icons;
+use SugarCommerce\Plugin\Assets;
 use Exception;
 
 /**
@@ -465,7 +465,7 @@ abstract class RowActions {
 
 		$handle = Runtime::handle();
 
-		Assets::style( $handle, 'css/row-actions.css' );
+		Assets::enqueue_style( $handle, __FILE__, 'css/row-actions.css' );
 
 		// Not marked done for the stylesheet alone: a later table with AJAX
 		// actions still needs the script.
@@ -475,7 +475,7 @@ abstract class RowActions {
 
 		self::$assets_enqueued = true;
 
-		if ( ! Assets::script( $handle, 'js/row-actions.js', [ 'jquery' ] ) ) {
+		if ( ! Assets::enqueue_script( $handle, __FILE__, 'js/row-actions.js', [ 'jquery' ] ) ) {
 			return;
 		}
 

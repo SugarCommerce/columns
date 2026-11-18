@@ -285,7 +285,38 @@ final class FrontDoorTest extends TestCase {
 		$printed = (string) ob_get_clean();
 
 		$this->assertSame( 1, substr_count( $printed, 'class="notice' ) );
-		$this->assertStringContainsString( '2 items processed.', $printed );
+		$this->assertSame( '<div class="notice notice-success is-dismissible"><p>2 items processed.</p></div>', $printed );
+	}
+
+	/**
+	 * A failed action says so, in core's error notice, with its message as text.
+	 */
+	public function test_a_failed_bulk_action_prints_an_error_notice_as_text(): void {
+		BulkActions::posts( 'post', [ 'touch' => [ 'label' => 'Touch' ] ] );
+
+		$_GET = [
+			'bulk_action_done'    => 'touch',
+			'bulk_action_error'   => '1',
+			'bulk_action_message' => 'Fish & chips',
+		];
+
+		$GLOBALS['rc_screen'] = (object) [
+			'id'        => 'edit-post',
+			'base'      => 'edit',
+			'post_type' => 'post',
+			'taxonomy'  => '',
+		];
+
+		ob_start();
+
+		foreach ( $GLOBALS['rc_hooks']['admin_notices'] as $notice ) {
+			$notice();
+		}
+
+		$printed = (string) ob_get_clean();
+
+		$this->assertStringStartsWith( '<div class="notice notice-error is-dismissible"><p>', $printed );
+		$this->assertStringContainsString( 'Fish &amp; chips', $printed );
 	}
 
 	/**

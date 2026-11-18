@@ -73,7 +73,7 @@ if ( ! function_exists( 'wp_create_nonce' ) ) {
 }
 
 /*
- * What Support\Assets calls is stubbed, down to the enqueue, which is where a
+ * What SugarCommerce\Plugin\Assets calls is stubbed, down to the enqueue, which is where a
  * test reads what was asked for. The library's own root stands in for
  * wp-content so its assets resolve to a URL.
  */
@@ -373,6 +373,72 @@ if ( ! function_exists( 'selected' ) ) {
 if ( ! function_exists( '_n' ) ) {
 	function _n( $single, $plural, $number, $domain = 'default' ) {
 		return 1 === (int) $number ? $single : $plural;
+	}
+}
+
+/*
+ * Core's admin notice markup (wp-admin/includes/misc.php, 6.4+), as core
+ * builds it: the message is not escaped, the id and classes are not either,
+ * and wp_admin_notice() passes the result through wp_kses_post(), which a
+ * test cannot run and so is left out.
+ */
+if ( ! function_exists( 'wp_get_admin_notice' ) ) {
+	function wp_get_admin_notice( $message, $args = array() ) {
+		$args = array_merge(
+			array(
+				'type'               => '',
+				'dismissible'        => false,
+				'id'                 => '',
+				'additional_classes' => array(),
+				'attributes'         => array(),
+				'paragraph_wrap'     => true,
+			),
+			(array) $args
+		);
+
+		$id         = '';
+		$classes    = 'notice';
+		$attributes = '';
+
+		if ( is_string( $args['id'] ) && '' !== trim( $args['id'] ) ) {
+			$id = 'id="' . trim( $args['id'] ) . '" ';
+		}
+
+		if ( is_string( $args['type'] ) && '' !== trim( $args['type'] ) ) {
+			$classes .= ' notice-' . trim( $args['type'] );
+		}
+
+		if ( true === $args['dismissible'] ) {
+			$classes .= ' is-dismissible';
+		}
+
+		if ( is_array( $args['additional_classes'] ) && ! empty( $args['additional_classes'] ) ) {
+			$classes .= ' ' . implode( ' ', $args['additional_classes'] );
+		}
+
+		if ( is_array( $args['attributes'] ) ) {
+			foreach ( $args['attributes'] as $attr => $val ) {
+				if ( is_bool( $val ) ) {
+					$attributes .= $val ? ' ' . $attr : '';
+				} elseif ( is_int( $attr ) ) {
+					$attributes .= ' ' . esc_attr( trim( $val ) );
+				} elseif ( $val ) {
+					$attributes .= ' ' . $attr . '="' . esc_attr( trim( $val ) ) . '"';
+				}
+			}
+		}
+
+		if ( false !== $args['paragraph_wrap'] ) {
+			$message = "<p>$message</p>";
+		}
+
+		return sprintf( '<div %1$sclass="%2$s"%3$s>%4$s</div>', $id, $classes, $attributes, $message );
+	}
+}
+
+if ( ! function_exists( 'wp_admin_notice' ) ) {
+	function wp_admin_notice( $message, $args = array() ) {
+		echo wp_get_admin_notice( $message, $args );
 	}
 }
 
