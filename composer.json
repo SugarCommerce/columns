@@ -1,0 +1,83 @@
+{
+  "name": "sugarcommerce/columns",
+  "description": "Columns, filters, bulk actions and row actions on WordPress's own list tables (posts, users, terms, comments and media), each declared as an array.",
+  "homepage": "https://github.com/SugarCommerce/columns",
+  "type": "library",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "David Sherlock",
+      "homepage": "https://arraypress.com/"
+    }
+  ],
+  "require": {
+    "php": ">=8.3"
+  },
+  "require-dev": {
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpunit/phpunit": "^12.0",
+    "squizlabs/php_codesniffer": "^3.13.5",
+    "sugarcommerce/fields": "dev-main",
+    "wp-coding-standards/wpcs": "^3.4"
+  },
+  "suggest": {
+    "sugarcommerce/fields": "Draws a row action icon given as `set:name` (`heroicons-outline:star`) as inline SVG."
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../fields",
+      "options": {
+        "symlink": false
+      }
+    },
+    {
+      "type": "path",
+      "url": "../geo",
+      "options": {
+        "symlink": false
+      }
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "SugarCommerce\\Columns\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SugarCommerce\\Columns\\Tests\\": "tests/"
+    },
+    "exclude-from-classmap": [
+      "/tests/bootstrap.php"
+    ]
+  },
+  "scripts": {
+    "test": "phpunit",
+    "lint": "phpcs",
+    "format": "phpcbf --standard=phpcs-format.xml.dist",
+    "format:check": "phpcs --standard=phpcs-format.xml.dist"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "support": {
+    "issues": "https://github.com/SugarCommerce/columns/issues",
+    "source": "https://github.com/SugarCommerce/columns"
+  },
+  "keywords": [
+    "wordpress",
+    "admin",
+    "columns",
+    "list-table",
+    "filters",
+    "bulk-actions",
+    "row-actions"
+  ]
+}
