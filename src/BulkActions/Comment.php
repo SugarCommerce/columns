@@ -24,5 +24,5 @@ class Comment extends BulkActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'comment';
+	protected const string OBJECT_TYPE = 'comment';
 }

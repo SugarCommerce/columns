@@ -24,5 +24,5 @@ class Taxonomy extends BulkActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'term';
+	protected const string OBJECT_TYPE = 'term';
 }

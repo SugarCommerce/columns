@@ -38,7 +38,7 @@ final class Runtime {
 	/**
 	 * This library's own identifier, used when running unprefixed.
 	 */
-	private const LIBRARY = 'sugarcommerce-columns';
+	private const string LIBRARY = 'sugarcommerce-columns';
 
 	/**
 	 * How many segments this class's own namespace has --
@@ -46,7 +46,7 @@ final class Runtime {
 	 * written out: Strauss rewrites a namespace it finds in a string, and
 	 * would prefix the very thing being compared against.
 	 */
-	private const OWN_SEGMENTS = 3;
+	private const int OWN_SEGMENTS = 3;
 
 	/**
 	 * The per-build prefix.
@@ -136,22 +136,16 @@ final class Runtime {
 	}
 
 	/**
-	 * The admin-ajax action name for this build.
+	 * The REST namespace this copy's routes live under: `{prefix}/v1`.
 	 *
-	 * The collision this avoids is the loud kind, unusually. Two prefixed
-	 * copies both hook `wp_ajax_sugarcommerce_columns_action_post_product`; add_action() does
-	 * not replace, so both handlers run. Whichever runs first looks the
-	 * action key up in *its* registry, does not find the other plugin's
-	 * action, and calls wp_send_json_error() -- which exits. The right
-	 * handler never gets the request.
-	 *
-	 * @param string $suffix What follows the action name.
+	 * The collision this avoids is the quiet kind. Two prefixed copies
+	 * registering the same route merge into one, and the first registered
+	 * answers both plugins' requests -- looking the action up in its own
+	 * registry, where the other plugin's is not.
 	 *
 	 * @return string
 	 */
-	public static function ajax_action( string $suffix = '' ): string {
-		$base = str_replace( '-', '_', self::prefix() ) . '_action';
-
-		return '' === $suffix ? $base : $base . '_' . $suffix;
+	public static function rest_namespace(): string {
+		return self::prefix() . '/v1';
 	}
 }

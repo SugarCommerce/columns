@@ -20,13 +20,14 @@ class Post extends ListFilters {
 	/**
 	 * Object type constant
 	 */
-	protected const OBJECT_TYPE = 'post';
+	protected const string OBJECT_TYPE = 'post';
 
 	/**
 	 * Load the necessary hooks for post list filters.
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	public function load_hooks(): void {
 		add_action( 'restrict_manage_posts', [ $this, 'render_filters_for_post_type' ] );
 		add_filter( 'parse_query', [ $this, 'modify_query' ] );
@@ -54,6 +55,7 @@ class Post extends ListFilters {
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	public function modify_query( $query ): void {
 		global $pagenow;
 

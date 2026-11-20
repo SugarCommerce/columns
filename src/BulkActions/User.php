@@ -24,5 +24,5 @@ class User extends BulkActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'user';
+	protected const string OBJECT_TYPE = 'user';
 }

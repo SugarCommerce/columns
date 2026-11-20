@@ -33,7 +33,7 @@ class Taxonomy extends Columns {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'term';
+	protected const string OBJECT_TYPE = 'term';
 
 	/**
 	 * Load the necessary hooks for custom columns.
@@ -42,6 +42,7 @@ class Taxonomy extends Columns {
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	protected function load_hooks(): void {
 		add_filter( "manage_edit-{$this->object_subtype}_columns", [ $this, 'register_columns' ] );
 		add_filter( "manage_edit-{$this->object_subtype}_sortable_columns", [ $this, 'register_sortable_columns' ] );
@@ -65,10 +66,12 @@ class Taxonomy extends Columns {
 	 *
 	 * @return mixed
 	 */
+	#[\Override]
 	protected function get_meta( $object_id, string $meta_key ) {
 		return get_term_meta( (int) $object_id, $meta_key, true );
 	}
 
+	#[\Override]
 	protected function is_screen(): bool {
 		return Screen::is( $this->object_type, $this->object_subtype );
 	}
@@ -82,6 +85,7 @@ class Taxonomy extends Columns {
 	 *
 	 * @return string The rendered column content.
 	 */
+	#[\Override]
 	public function render_column_content( string $value, string $column_name, $term_id ): string {
 		$column = $this->get_column_by_name( $column_name, $this->object_type, $this->object_subtype );
 

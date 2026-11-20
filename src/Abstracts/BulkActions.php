@@ -14,14 +14,16 @@ declare( strict_types=1 );
 namespace SugarCommerce\Columns\Abstracts;
 
 use SugarCommerce\Columns\Support\Screen;
+use SugarCommerce\Columns\Utils\Runtime;
 use Exception;
+use Throwable;
 
 abstract class BulkActions {
 
 	/**
 	 * Object type constant (e.g., 'post', 'user', 'term', 'comment', 'attachment')
 	 */
-	protected const OBJECT_TYPE = '';
+	protected const string OBJECT_TYPE = '';
 
 	/**
 	 * Object type
@@ -204,7 +206,7 @@ abstract class BulkActions {
 			// Handle response
 			if ( is_array( $result ) ) {
 				if ( isset( $result['message'] ) ) {
-					$redirect_to = add_query_arg( 'bulk_action_message', urlencode( $result['message'] ), $redirect_to );
+					$redirect_to = add_query_arg( 'bulk_action_notice', self::keep_message( (string) $result['message'] ), $redirect_to );
 				}
 				if ( isset( $result['success'] ) && ! $result['success'] ) {
 					$redirect_to = add_query_arg( 'bulk_action_error', '1', $redirect_to );
@@ -215,14 +217,54 @@ abstract class BulkActions {
 			$redirect_to = add_query_arg( 'bulk_action_count', count( $object_ids ), $redirect_to );
 			$redirect_to = add_query_arg( 'bulk_action_done', $doaction, $redirect_to );
 
-		} catch ( Exception $e ) {
-			$redirect_to = add_query_arg( [
-				'bulk_action_error'   => '1',
-				'bulk_action_message' => urlencode( $e->getMessage() ),
-			], $redirect_to );
+		} catch ( Throwable $e ) {
+			// The callback's exception is somebody else's -- a query, a path --
+			// so its words are shown only where core shows errors.
+			$redirect_to = add_query_arg(
+				[
+					'bulk_action_error'  => '1',
+					'bulk_action_notice' => self::keep_message(
+						defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_DISPLAY' ) && WP_DEBUG_DISPLAY
+							? $e->getMessage()
+							: __( 'The action could not be completed.', 'sugarcommerce' )
+					),
+				],
+				$redirect_to
+			);
 		}
 
 		return $redirect_to;
+	}
+
+	/**
+	 * Keep an action's message for the page it sends the user back to, for
+	 * this user only, and hand back the token the address carries.
+	 *
+	 * The message used to travel in the address itself, so a link anyone
+	 * could write -- `bulk_action_message=Your account is locked, call…` --
+	 * put their words in an admin notice on the list.
+	 *
+	 * @param string $message What to say.
+	 *
+	 * @return string The token.
+	 */
+	protected static function keep_message( string $message ): string {
+		$token = bin2hex( random_bytes( 8 ) );
+
+		set_transient( self::message_key( $token ), $message, 5 * MINUTE_IN_SECONDS );
+
+		return $token;
+	}
+
+	/**
+	 * The transient a token names, for the signed-in user only.
+	 *
+	 * @param string $token The token.
+	 *
+	 * @return string
+	 */
+	protected static function message_key( string $token ): string {
+		return Runtime::key( 'bulk_' . get_current_user_id() . '_' . sanitize_key( $token ) );
 	}
 
 	/**
@@ -245,12 +287,10 @@ abstract class BulkActions {
 		$action_key = sanitize_key( $_GET['bulk_action_done'] );
 		$count      = isset( $_GET['bulk_action_count'] ) ? absint( $_GET['bulk_action_count'] ) : 0;
 		$is_error   = isset( $_GET['bulk_action_error'] );
-		// Sanitized as well as escaped at output. urldecode alone lets a
-		// message carry newlines and control characters into a notice; they
-		// cannot break out of it, but they are not a message either.
-		$message = isset( $_GET['bulk_action_message'] )
-			? sanitize_text_field( wp_unslash( $_GET['bulk_action_message'] ) )
-			: '';
+		// The message is the one this user's action kept, named by its
+		// token; words in the address are never shown.
+		$token   = isset( $_GET['bulk_action_notice'] ) ? sanitize_key( wp_unslash( $_GET['bulk_action_notice'] ) ) : '';
+		$message = '' === $token ? '' : sanitize_text_field( (string) get_transient( self::message_key( $token ) ) );
 
 		$actions = self::get_actions( $this->object_type, $this->object_subtype );
 

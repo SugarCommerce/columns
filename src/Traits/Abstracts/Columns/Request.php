@@ -13,7 +13,7 @@
 
 declare( strict_types=1 );
 
-namespace SugarCommerce\Columns\Traits;
+namespace SugarCommerce\Columns\Traits\Abstracts\Columns;
 
 /**
  * Trait Request

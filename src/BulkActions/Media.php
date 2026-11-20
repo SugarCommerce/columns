@@ -24,5 +24,5 @@ class Media extends BulkActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'media';
+	protected const string OBJECT_TYPE = 'media';
 }

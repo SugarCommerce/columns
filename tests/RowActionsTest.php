@@ -12,18 +12,16 @@ namespace SugarCommerce\Columns\Tests;
 use SugarCommerce\Columns\RowActions\Post;
 use SugarCommerce\Columns\Utils\Runtime;
 use PHPUnit\Framework\TestCase;
-use RA_Sent;
+use SugarCommerce\Columns\Rest\RowActionRoute;
+use WP_REST_Request;
 
 /**
  * A row action is a link in a list table that does something to one row, and
- * the something runs over admin-ajax.
+ * the something runs through this copy's REST route.
  *
- * Which means three things have to line up: the action name the link posts to,
- * the hook the handler is registered on, and the nonce. Two of them used to be
- * built from strings that Strauss does not rewrite, so two plugins bundling
- * this library collided -- and collided in the loud way, because both handlers
- * run and the first one to find no matching action calls wp_send_json_error(),
- * which exits.
+ * The route is named for the copy: two plugins bundling this library each
+ * answer for their own actions, where one shared admin-ajax action used to
+ * run both handlers and the first to find no match exited.
  */
 final class RowActionsTest extends TestCase {
 
@@ -43,6 +41,8 @@ final class RowActionsTest extends TestCase {
 
 		$enqueued = $reflection->getProperty( 'assets_enqueued' );
 		$enqueued->setValue( null, false );
+
+		( new \ReflectionProperty( RowActionRoute::class, 'booted' ) )->setValue( null, false );
 
 		$_POST = array();
 	}
@@ -76,225 +76,208 @@ final class RowActionsTest extends TestCase {
 	}
 
 	/**
-	 * The handler is hooked on this build's own action name.
+	 * A request to the route for the registered action on row 7.
+	 *
+	 * @param array<string, mixed> $params What differs.
+	 *
+	 * @return WP_REST_Request
 	 */
-	public function test_the_handler_is_hooked_on_a_derived_action(): void {
-		$this->actions();
+	private function request( array $params = array() ): WP_REST_Request {
+		$request = new WP_REST_Request( 'POST', '/' );
 
-		$expected = 'wp_ajax_' . Runtime::ajax_action( 'post_product' );
+		foreach ( array_merge(
+			array(
+				'object_type'    => 'post',
+				'object_subtype' => 'product',
+				'action_key'     => 'resend',
+				'object_id'      => 7,
+				'options'        => array(),
+			),
+			$params
+		) as $key => $value ) {
+			$request->set_param( $key, $value );
+		}
 
-		$this->assertArrayHasKey( $expected, $GLOBALS['rc_hooks'] );
-		// The action name is an underscore form, since it is a hook rather
-		// than a handle.
-		$this->assertStringContainsString( str_replace( '-', '_', Runtime::prefix() ), $expected );
+		return $request;
 	}
 
 	/**
-	 * The link carries the action name rather than the browser rebuilding it.
-	 *
-	 * Every prefixed copy loads the same script file under its own handle, so
-	 * a shared JavaScript object is owned by whichever localised last and
-	 * every other copy's links would dispatch to the wrong plugin.
+	 * An action runs through this build's own REST route, its arguments
+	 * typed, and no admin-ajax action is hooked.
 	 */
-	public function test_the_link_carries_its_own_action(): void {
+	public function test_the_action_runs_through_this_builds_route(): void {
+		$this->actions();
+		RowActionRoute::register();
+
+		$route = $GLOBALS['rc_routes'][ Runtime::rest_namespace() . '/row-action' ] ?? null;
+
+		$this->assertSame( 'sugarcommerce-columns/v1', Runtime::rest_namespace() );
+		$this->assertNotNull( $route );
+		$this->assertSame( 'POST', $route['methods'] );
+		$this->assertSame( array( 'post', 'user', 'term', 'comment' ), $route['args']['object_type']['enum'] );
+		$this->assertSame( 'integer', $route['args']['object_id']['type'] );
+		$this->assertSame( 1, $route['args']['object_id']['minimum'] );
+		$this->assertSame( '^[a-z0-9_-]+$', $route['args']['action_key']['pattern'] );
+		$this->assertSame( 'object', $route['args']['options']['type'] );
+		$this->assertSame( array(), preg_grep( '/^wp_ajax_/', array_keys( $GLOBALS['rc_hooks'] ?? array() ) ) );
+		$this->assertContains( array( RowActionRoute::class, 'register' ), $GLOBALS['rc_hooks']['rest_api_init'] ?? array() );
+	}
+
+	/**
+	 * The link carries its copy's settings and what the route needs, and no
+	 * nonce: api-fetch sends the REST one.
+	 *
+	 * Each prefixed copy has a route of its own and loads the same script
+	 * under its own handle, so the link names its copy's settings rather
+	 * than one shared object owned by whichever printed last.
+	 */
+	public function test_the_link_carries_its_own_copy(): void {
 		$instance = $this->actions();
 
-		$rendered = $instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 );
+		$link = implode( ' ', $instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 ) );
 
-		$link = implode( ' ', $rendered );
-
-		$this->assertStringContainsString( 'data-ajax-action="' . Runtime::ajax_action( 'post_product' ) . '"', $link );
+		$this->assertStringContainsString( 'data-config="' . Runtime::handle() . '"', $link );
+		$this->assertStringContainsString( 'data-object-type="post"', $link );
+		$this->assertStringContainsString( 'data-object-subtype="product"', $link );
 		$this->assertStringContainsString( 'data-action-key="resend"', $link );
 		$this->assertStringContainsString( 'data-object-id="7"', $link );
+		$this->assertStringNotContainsString( 'data-nonce', $link );
+		$this->assertStringNotContainsString( 'data-ajax-action', $link );
+		$this->assertSame( Runtime::rest_namespace() . '/row-action', \SugarCommerce\Columns\Abstracts\RowActions::script_config()['path'] );
 	}
 
 	/**
-	 * The nonce the link carries is the one the handler checks.
-	 *
-	 * They are built in two different methods, which is exactly how they come
-	 * apart -- and when they do, every action fails with "invalid security
-	 * token" and nothing says why.
+	 * The route runs the callback with the row and its options, and answers
+	 * with what it said.
 	 */
-	public function test_the_link_nonce_is_the_one_the_handler_checks(): void {
-		$instance = $this->actions();
+	public function test_the_route_runs_the_action(): void {
+		$seen = null;
 
-		$instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 );
+		$this->actions(
+			function ( $id, $options ) use ( &$seen ) {
+				$seen = array( $id, $options );
 
-		$created = $GLOBALS['ra_nonces'];
-
-		$this->assertNotEmpty( $created );
-
-		$_POST = array(
-			'action_key' => 'resend',
-			'object_id'  => 7,
-			'_wpnonce'   => 'nonce:' . $created[0],
-			'options'    => '{}',
+				return array( 'reload' => false );
+			}
 		);
 
-		$this->expectException( RA_Sent::class );
+		$this->assertTrue( RowActionRoute::permitted( $this->request( array( 'options' => array( 'reason' => 'expired' ) ) ) ) );
 
-		try {
-			$instance->handle_ajax();
-		} finally {
-			$sent = end( $GLOBALS['ra_json'] );
+		$answer = RowActionRoute::run( $this->request( array( 'options' => array( 'reason' => 'expired' ) ) ) );
 
-			$this->assertTrue( $sent['success'], 'The nonce the link carries was refused by the handler.' );
-		}
+		$this->assertSame( array( 7, array( 'reason' => 'expired' ) ), $seen );
+		$this->assertFalse( $answer->get_data()['reload'] );
+		$this->assertSame( 'Action completed successfully', $answer->get_data()['message'] );
 	}
 
 	/**
-	 * A wrong nonce is refused.
-	 */
-	public function test_a_wrong_nonce_is_refused(): void {
-		$instance = $this->actions();
-
-		$_POST = array(
-			'action_key' => 'resend',
-			'object_id'  => 7,
-			'_wpnonce'   => 'nonce:something-else',
-			'options'    => '{}',
-		);
-
-		try {
-			$instance->handle_ajax();
-			$this->fail( 'The handler did not respond.' );
-		} catch ( RA_Sent $sent ) {
-			$response = end( $GLOBALS['ra_json'] );
-
-			$this->assertFalse( $response['success'] );
-			$this->assertSame( 403, $response['status'] );
-		}
-	}
-
-	/**
-	 * Without the capability, nothing runs.
+	 * Without the capability, or past the action's own permission callback
+	 * for that row, the route refuses before anything runs.
 	 */
 	public function test_the_capability_is_required(): void {
-		$ran      = false;
-		$instance = $this->actions(
-			function () use ( &$ran ) {
-				$ran = true;
+		$this->actions();
 
-				return array();
-			}
+		$GLOBALS['rc_caps'] = array();
+
+		$refused = RowActionRoute::permitted( $this->request() );
+
+		$this->assertInstanceOf( \WP_Error::class, $refused );
+		$this->assertSame( 403, $refused->get_error_data()['status'] );
+
+		new Post(
+			array(
+				'only_eight' => array(
+					'ajax'                => true,
+					'capability'          => 'read',
+					'permission_callback' => static fn( int $id ): bool => 8 === $id,
+					'callback'            => static fn() => array(),
+				),
+			),
+			'product'
 		);
 
-		$instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 );
+		$GLOBALS['rc_caps'] = array( 'read' );
 
-		$GLOBALS['rc_caps'] = [];
-
-		$_POST = array(
-			'action_key' => 'resend',
-			'object_id'  => 7,
-			'_wpnonce'   => 'nonce:' . $GLOBALS['ra_nonces'][0],
-			'options'    => '{}',
-		);
-
-		try {
-			$instance->handle_ajax();
-		} catch ( RA_Sent $sent ) {
-			$response = end( $GLOBALS['ra_json'] );
-
-			$this->assertFalse( $response['success'] );
-			$this->assertSame( 403, $response['status'] );
-		}
-
-		$this->assertFalse( $ran, 'The callback ran without the capability.' );
+		$this->assertInstanceOf( \WP_Error::class, RowActionRoute::permitted( $this->request( array( 'action_key' => 'only_eight' ) ) ) );
+		$this->assertTrue( RowActionRoute::permitted( $this->request( array( 'action_key' => 'only_eight', 'object_id' => 8 ) ) ) );
 	}
 
 	/**
-	 * A malformed options body reaches the callback as an array.
+	 * An action that is not one, on a table it was not registered for, or
+	 * that does not run through the route, is refused.
+	 */
+	public function test_an_unknown_action_is_refused(): void {
+		$this->actions();
+
+		new Post( array( 'link' => array( 'url' => 'https://example.test/', 'capability' => 'read' ) ), 'product' );
+
+		foreach ( array(
+			array( 'action_key' => 'nope' ),
+			array( 'object_subtype' => 'page' ),
+			array( 'object_type' => 'user' ),
+			array( 'action_key' => 'link' ),
+		) as $bad ) {
+			$refused = RowActionRoute::permitted( $this->request( $bad ) );
+
+			$this->assertInstanceOf( \WP_Error::class, $refused, (string) wp_json_encode( $bad ) );
+			$this->assertSame( 404, $refused->get_error_data()['status'] );
+		}
+	}
+
+	/**
+	 * Options that are not an object reach the callback as an array.
 	 *
-	 * json_decode() returns null on a parse failure and false for the literal
-	 * `false`, and `?? []` catches only the first -- so a body of `false` used
-	 * to arrive at the callback as a boolean where an array was expected.
-	 *
-	 * @param string $body What was posted.
+	 * @param mixed $options What was sent.
 	 */
 	#[\PHPUnit\Framework\Attributes\DataProvider( 'malformedProvider' )]
-	public function test_a_malformed_options_body_is_still_an_array( string $body ): void {
+	public function test_malformed_options_are_still_an_array( mixed $options ): void {
 		$seen = 'not called';
 
-		$instance = $this->actions(
-			function ( $id, $options ) use ( &$seen ) {
-				$seen = $options;
+		$this->actions(
+			function ( $id, $given ) use ( &$seen ) {
+				$seen = $given;
 
 				return array();
 			}
 		);
 
-		$instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 );
+		RowActionRoute::run( $this->request( array( 'options' => $options ) ) );
 
-		$_POST = array(
-			'action_key' => 'resend',
-			'object_id'  => 7,
-			'_wpnonce'   => 'nonce:' . $GLOBALS['ra_nonces'][0],
-			'options'    => $body,
-		);
-
-		try {
-			$instance->handle_ajax();
-		} catch ( RA_Sent $sent ) {
-			// Expected: the handler responds and exits.
-			$this->addToAssertionCount( 1 );
-		}
-
-		$this->assertIsArray( $seen, sprintf( 'A body of %s reached the callback as a %s.', $body, gettype( $seen ) ) );
+		$this->assertSame( array(), $seen );
 	}
 
 	/**
-	 * @return array<string, array{0: string}>
+	 * @return array<string, array{0: mixed}>
 	 */
 	public static function malformedProvider(): array {
 		return array(
-			'the literal false' => array( 'false' ),
-			'the literal null'  => array( 'null' ),
-			'a bare number'     => array( '42' ),
-			'a bare string'     => array( '"hello"' ),
-			'nonsense'          => array( 'not json at all' ),
-			'empty'             => array( '' ),
+			'false'   => array( false ),
+			'null'    => array( null ),
+			'number'  => array( 42 ),
+			'string'  => array( 'hello' ),
 		);
 	}
 
 	/**
-	 * A slashed options body still decodes.
-	 *
-	 * WordPress slashes the request superglobals on load, so a quoted value
-	 * arrives carrying backslashes that were never sent -- and json_decode()
-	 * refuses the result outright.
+	 * A callback that throws answers that it failed, and keeps its message
+	 * -- a query, a path -- on the server.
 	 */
-	public function test_a_slashed_options_body_still_decodes(): void {
-		$seen = null;
-
-		$instance = $this->actions(
-			function ( $id, $options ) use ( &$seen ) {
-				$seen = $options;
-
-				return array();
+	public function test_a_failing_callback_keeps_its_message(): void {
+		$this->actions(
+			static function (): never {
+				throw new \RuntimeException( 'SQLSTATE wp_secret' );
 			}
 		);
 
-		$instance->register_actions( array(), (object) array( 'ID' => 7 ), 7 );
+		$answer = RowActionRoute::run( $this->request() );
 
-		$_POST = array(
-			'action_key' => 'resend',
-			'object_id'  => 7,
-			'_wpnonce'   => 'nonce:' . $GLOBALS['ra_nonces'][0],
-			// What core hands back for {"reason":"expired"}.
-			'options'    => '{\"reason\":\"expired\"}',
-		);
-
-		try {
-			$instance->handle_ajax();
-		} catch ( RA_Sent $sent ) {
-			$this->addToAssertionCount( 1 );
-		}
-
-		$this->assertSame( array( 'reason' => 'expired' ), $seen );
+		$this->assertInstanceOf( \WP_Error::class, $answer );
+		$this->assertSame( 500, $answer->get_error_data()['status'] );
+		$this->assertStringNotContainsString( 'wp_secret', $answer->get_error_message() );
 	}
 
 	/**
-	 * Two builds share no action name, handle or nonce.
+	 * Two builds share no route, handle or key.
 	 */
 	public function test_two_builds_share_nothing(): void {
 		$one = Runtime::prefix_for( 'PluginOne\\SugarCommerce\\Columns\\Utils' );
@@ -312,7 +295,7 @@ final class RowActionsTest extends TestCase {
 	 * so a value-based test cannot tell them apart.
 	 */
 	public function test_no_runtime_key_is_hardcoded(): void {
-		$files = glob( dirname( __DIR__ ) . '/src/{,*/}*.php', GLOB_BRACE );
+		$files = glob( dirname( __DIR__ ) . '/src/{,*/,*/*/,*/*/*/}*.php', GLOB_BRACE );
 
 		$this->assertNotEmpty( $files );
 
@@ -324,9 +307,9 @@ final class RowActionsTest extends TestCase {
 			$source = (string) file_get_contents( $file );
 
 			$this->assertStringNotContainsString(
-				'wp_ajax_row_action_',
+				'wp_ajax_',
 				$source,
-				sprintf( '%s hardcodes the admin-ajax action name.', basename( $file ) )
+				sprintf( '%s hooks an admin-ajax action.', basename( $file ) )
 			);
 
 			$this->assertStringNotContainsString(

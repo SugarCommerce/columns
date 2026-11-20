@@ -246,7 +246,7 @@ RowActions::posts( 'download', [
 |---|---|---|
 | `label` / `label_callback` | `''` / `null` | The text, escaped; the callback is given the object id. |
 | `url` / `url_callback` | `''` / `null` | Where a link goes. `url` gets `?id=`; the callback is given the id. |
-| `ajax` + `callback` | `false` / `null` | Calls `callback( $object_id, $options )` over admin-ajax without leaving the page. |
+| `ajax` + `callback` | `false` / `null` | Calls `callback( $object_id, $options )` through the copy's REST route without leaving the page. |
 | `confirm` | `''` | Asks first. |
 | `capability` | `manage_options` | Needed to see it and to run it. |
 | `permission_callback` | `null` | Given the object id; false hides it for that row. |
@@ -254,11 +254,22 @@ RowActions::posts( 'download', [
 | `class`, `target` | `''` | On the link. |
 | `icon` | `''` | Before the label; see below. |
 
-An AJAX action is nonce-checked per action and row, and the request is
-refused before the callback for an unknown action, a bad nonce or a missing
-permission. The callback's array is sent back with a default `message`; the
-page reloads after success unless it says `'reload' => false`. A thrown
-exception's message is shown as the error. Messages are shown as text.
+An `ajax` action runs through one REST route per copy of the library,
+`{prefix}-sugarcommerce-columns/v1/row-action` (`Rest\RowActionRoute::path()`),
+sent by the script with `@wordpress/api-fetch`, which carries the REST nonce
+and renews it. The route's arguments are typed (`object_type`,
+`object_subtype`, `action_key`, `object_id`, `options`), and it refuses an
+unknown action, one without `ajax`, or a missing capability or
+`permission_callback` before the callback runs. The callback's array (or a
+`WP_Error`) is sent back with a default `message`; the page reloads after
+success unless it says `'reload' => false`. A thrown exception answers that
+the action could not be completed, its own message only under `WP_DEBUG`
+with `WP_DEBUG_DISPLAY`. Messages are shown as text.
+
+A REST request runs no `admin_init`, so a plugin with `ajax` row actions
+registers them on `init` (or anything both an admin screen and a REST
+request run); the columns, filters and bulk actions are fine on
+`admin_init`.
 
 ### Row action icons
 
@@ -290,7 +301,8 @@ For an action that flips a flag:
 
 Both take `post`, `attachment`, `comment`, `user` or `term`.
 `RowActions::ajax_url( $action, $id, $args )` builds an admin-ajax URL with
-`action`, `id` and a nonce for `{$action}_{$id}`.
+`action`, `id` and a nonce for `{$action}_{$id}`, for a plain link to an
+endpoint of a plugin's own; anything a script calls should be a REST route.
 
 ## A table of your own
 
@@ -305,72 +317,64 @@ overridden to change the default capability.
 
 ## Two plugins, one library
 
-Bundled by Strauss into two plugins, each copy has its own admin-ajax action,
-script handle and nonce keys, worked out from its prefixed namespace
+Bundled by Strauss into two plugins, each copy has its own REST namespace,
+script handle and keys, worked out from its prefixed namespace
 (`Utils\Runtime`): `sugarcommerce-columns` unprefixed,
 `{prefix}-sugarcommerce-columns` in a prefixed build. The script's settings
 are kept per copy in `window.SugarCommerceColumns[handle]`, each link names
 its copy, and the script binds its click handler once however many copies
 load it.
 
-## Moving from arraypress/wp-*
+## The script
 
-`arraypress/wp-register-columns` (`ArrayPress\RegisterColumns`) is this
-package. The global functions are the four front doors; every configuration
-key, the table classes, the abstracts edd-registrars extends, and the
-`bulk_action_*` query arguments keep their names. It no longer needs
-`wp-array-utils`; `wp-composer-assets` is now `sugarcommerce/plugin`, whose
-`SugarCommerce\Plugin\Assets` is the one home for a package's asset URLs; and
-`wp-field-kit` is now `sugarcommerce/fields` (still suggested).
+`assets/js/row-actions.js` and `assets/js/row-actions/run.js`, ES modules
+built by `@wordpress/scripts` into `assets/build/row-actions.js` (with its
+`.asset.php`: `wp-api-fetch`, `wp-dom-ready`), registered through
+`SugarCommerce\Plugin\Assets::enqueue_built_script()`. No jQuery. One click
+handler on the document for every copy (`window.SugarCommerceColumnsRowActions`
+is the flag); each link names its copy's settings in
+`window.SugarCommerceColumns[handle]` (`path`, `strings`, `icons`). A notice
+goes under the screen's heading, as text, and core is told
+(`wp-updates-notice-added`) so it gets its dismiss button.
 
-| Old | New |
-|---|---|
-| `ArrayPress\RegisterColumns\*` | `SugarCommerce\Columns\*` |
-| `register_post_columns( $types, $columns, $remove )` | `Columns::posts( $types, $columns, $remove )` |
-| `register_user_columns( $columns, $remove )` | `Columns::users( $columns, $remove )` |
-| `register_taxonomy_columns( $taxonomies, $columns, $remove )` | `Columns::terms( $taxonomies, $columns, $remove )` |
-| `register_comment_columns( $columns, $remove )` | `Columns::comments( $columns, $remove )` |
-| `register_media_columns( $columns, $remove )` | `Columns::media( $columns, $remove )` |
-| `register_post_list_filters( $types, $filters )` | `Filters::posts( $types, $filters )` (returns the instances) |
-| `register_user_list_filters( $filters )` | `Filters::users( $filters )` |
-| `register_{post,user,taxonomy,comment,media}_bulk_actions()` | `BulkActions::posts()`, `::users()`, `::terms()`, `::comments()`, `::media()` (return the instances) |
-| `register_{post,user,taxonomy,comment,media}_row_actions()` | `RowActions::posts()`, `::users()`, `::terms()`, `::comments()`, `::media()` |
-| `get_toggle_label( $type, $id, $key, $on, $off )` | `RowActions::toggle_label( $type, $id, $key, $on, $off )` |
-| `toggle_meta( $type, $id, $key )` | `RowActions::toggle_meta( $type, $id, $key )` |
-| `get_ajax_url( $action, $id, $args )` | `RowActions::ajax_url( $action, $id, $args )` |
-| `Arr::insert_after()` / `insert_before()` for `position` | `Support\Position::insert( $items, $position, $key, $value )` |
-| a bulk action or filter key that is not a string threw | refused and logged, as columns and row actions always were |
-| script and style handle `row-actions` | `sugarcommerce-columns` (`Runtime::handle()`); prefixed builds `{prefix}-sugarcommerce-columns` |
-| admin-ajax action `row_actions_action_{type}_{subtype}` | `sugarcommerce_columns_action_{type}_{subtype}` (`Runtime::ajax_action()`) |
-| nonce actions `row_actions_{type}_{subtype}_{key}_{id}` | `sugarcommerce_columns_{…}` (`Runtime::key()`) |
-| `window.rowActionsConfig`, `window.RowActionHandler` | `window.SugarCommerceColumns[handle]` (the link's `data-config`), `window.SugarCommerceColumnsRowActions` |
-| icon class `arraypress-icon` | `sugarcommerce-icon` (`Abstracts\RowActions::ICON_CLASS`, the same as sugarcommerce/fields') |
-| text domain `arraypress` | `sugarcommerce` |
-| `SugarCommerce\Columns\Support\Assets::style()` / `::script()` / `::resolve()` / `::url_of()` | removed: `SugarCommerce\Plugin\Assets::enqueue_style( $handle, __FILE__, $file )` / `::enqueue_script()` / `::resolve()` / `::path_to_url()` |
-| bulk action notice printed by hand | `wp_admin_notice()`, the same markup |
+```bash
+npm ci
+npm run build      # assets/build, committed
+npm run test:js    # Vitest, in jsdom (composer test:js runs it too)
+npm run lint:js
+```
 
-Fixed on the way:
+## Security
 
-* Post row actions hooked `{post_type}_row_actions`, which core does not
-  have: a custom post type got none of its own actions, and actions for
-  `post` showed on every flat custom type. They now use `post_row_actions`
-  and `page_row_actions`, on that post type's rows only.
-* Registering one table twice attached its bulk action handler twice, so the
-  callback ran twice over every selected row; and an action registered on
-  two tables (one array for `post` and `page`) printed its notice twice. Both
-  now happen once, on the table the action ran on.
-* A second registration's removals were ignored for columns and row actions;
-  every registration's now apply.
-* Two AJAX actions with identical arrays both posted the first one's key.
-* A refused AJAX action (bad nonce, no permission) said "Error: Unknown
-  error"; it now says why. Its message is shown as text, not HTML.
-* Row actions attach at registration rather than waiting for `admin_init`,
-  as the other three always did.
+* Running an action you may not: the REST route asks the action's
+  capability and its `permission_callback` for that row before the callback
+  runs; core's REST nonce covers forgery.
+* Running something that is not an action: only an action registered with
+  `ajax` on that table runs; anything else is refused before a callback.
+* Arguments of the wrong shape: the route's arguments are typed and matched
+  (`object_id` an integer from 1, keys `[a-z0-9_-]`, `options` an object).
+* Words put on the list by a link: a bulk action's message is kept for the
+  user who ran it and named by a token in the address; a message written into
+  the address is never shown.
+* Leaking internals: a callback's exception is shown only under `WP_DEBUG`
+  with `WP_DEBUG_DISPLAY`; otherwise the action "could not be completed".
+* Markup in a message: notices and cells are escaped (`esc_html`, text in
+  the script), and a filter's value is sanitized before it reaches a query.
 
-Kept as they were: the `row-action-*` CSS classes, the
-`assets/css/row-actions.css` and `assets/js/row-actions.js` file names, and
-the `bulk_action_done`, `bulk_action_count`, `bulk_action_message` and
-`bulk_action_error` query arguments.
+## Source layout
+
+* `src/Columns.php`, `Filters.php`, `BulkActions.php`, `RowActions.php`: the
+  front doors; `src/Tables/`, `src/Filters/`, `src/BulkActions/`,
+  `src/RowActions/`: one class per core list (posts, users, terms, comments,
+  media).
+* `src/Abstracts/`: what each of those extends, with their jobs as traits in
+  `src/Traits/Abstracts/Columns/` (cells, styles, the request's sort) and
+  `src/Traits/Abstracts/RowActions/` (links, the script and icons).
+* `src/Rest/RowActionRoute.php`: the route `ajax` actions run through.
+* `src/Support/` (screens, positions, images, query arguments, the
+  registrar) and `src/Utils/Runtime.php` (names per copy).
+* `src/` is PHP only. The script's sources are in `assets/js/`, built to
+  `assets/build/`; the styles are in `assets/css/`.
 
 ## Requirements
 

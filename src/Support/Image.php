@@ -29,7 +29,7 @@ final class Image {
 	 * Matching it is the whole point: an image column beside a core one that
 	 * is four pixels different reads as a mistake.
 	 */
-	public const DEFAULT_SIZE = 32;
+	public const int DEFAULT_SIZE = 32;
 
 	/**
 	 * Render whatever a column stored.

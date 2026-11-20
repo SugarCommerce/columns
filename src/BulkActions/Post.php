@@ -24,5 +24,5 @@ class Post extends BulkActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'post';
+	protected const string OBJECT_TYPE = 'post';
 }

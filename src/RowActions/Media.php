@@ -18,7 +18,6 @@ declare( strict_types=1 );
 namespace SugarCommerce\Columns\RowActions;
 
 use SugarCommerce\Columns\Abstracts\RowActions;
-use SugarCommerce\Columns\Utils\Runtime;
 use WP_Post;
 
 /**
@@ -35,7 +34,7 @@ class Media extends RowActions {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'post';
+	protected const string OBJECT_TYPE = 'post';
 
 	/**
 	 * Load the necessary hooks for custom row actions.
@@ -44,9 +43,9 @@ class Media extends RowActions {
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	public function load_hooks(): void {
 		add_filter( 'media_row_actions', [ $this, 'register_actions_wrapper' ], 10, 2 );
-		add_action( 'wp_ajax_' . Runtime::ajax_action( $this->object_type . '_' . $this->object_subtype ), [ $this, 'handle_ajax' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 	}
 

@@ -350,11 +350,20 @@ if ( ! function_exists( 'absint' ) ) {
 }
 
 if ( ! function_exists( 'add_query_arg' ) ) {
-	function add_query_arg( $args, $url = '' ) {
-		$parts = explode( '?', (string) $url, 2 );
+	function add_query_arg( ...$given ) {
+		// Both of core's forms: ( $array, $url ) and ( $key, $value, $url ).
+		if ( is_array( $given[0] ) ) {
+			$args = $given[0];
+			$url  = (string) ( $given[1] ?? '' );
+		} else {
+			$args = array( (string) $given[0] => $given[1] ?? '' );
+			$url  = (string) ( $given[2] ?? '' );
+		}
+
+		$parts = explode( '?', $url, 2 );
 		parse_str( $parts[1] ?? '', $existing );
 
-		return $parts[0] . '?' . http_build_query( array_merge( $existing, (array) $args ) );
+		return $parts[0] . '?' . http_build_query( array_merge( $existing, $args ) );
 	}
 }
 
@@ -524,4 +533,86 @@ function rc_reset_globals(): void {
 	}
 
 	( new ReflectionProperty( 'SugarCommerce\\Columns\\Abstracts\\RowActions', 'assets_enqueued' ) )->setValue( null, false );
+}
+
+/*
+ * Core's REST pieces, as far as the row action route uses them.
+ */
+if ( ! function_exists( 'register_rest_route' ) ) {
+	function register_rest_route( $route_namespace, $route, $args = array(), $override = false ) {
+		$GLOBALS['rc_routes'][ $route_namespace . $route ] = $args;
+
+		return true;
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		private array $params = array();
+
+		public function __construct( $method = '', $route = '' ) {
+		}
+
+		public function set_param( $key, $value ) {
+			$this->params[ $key ] = $value;
+		}
+
+		public function get_param( $key ) {
+			return $this->params[ $key ] ?? null;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		public function __construct( public $code = '', public $message = '', public $data = null ) {
+		}
+
+		public function get_error_code() {
+			return $this->code;
+		}
+
+		public function get_error_message() {
+			return $this->message;
+		}
+
+		public function get_error_data() {
+			return $this->data;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	class WP_REST_Response {
+		public function __construct( public $data = null, public $status = 200 ) {
+		}
+
+		public function get_data() {
+			return $this->data;
+		}
+	}
+}
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $key, $value, $expiration = 0 ) {
+		$GLOBALS['rc_transients'][ $key ] = $value;
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $key ) {
+		return $GLOBALS['rc_transients'][ $key ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id() {
+		return (int) ( $GLOBALS['rc_user_id'] ?? 1 );
+	}
 }

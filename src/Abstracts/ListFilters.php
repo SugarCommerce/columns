@@ -20,7 +20,7 @@ abstract class ListFilters {
 	/**
 	 * Object type constant (e.g., 'post', 'user')
 	 */
-	protected const OBJECT_TYPE = '';
+	protected const string OBJECT_TYPE = '';
 
 	/**
 	 * Object type

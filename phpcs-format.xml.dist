@@ -59,7 +59,7 @@
             written, and a sortable column header is a link, which carries no
             nonce.
         -->
-        <exclude-pattern>src/Traits/Request.php</exclude-pattern>
+        <exclude-pattern>src/Traits/Abstracts/Columns/Request.php</exclude-pattern>
     </rule>
 
     <rule ref="WordPress.DB.SlowDBQuery">

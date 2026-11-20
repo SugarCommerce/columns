@@ -21,13 +21,14 @@ class User extends ListFilters {
 	/**
 	 * Object type constant
 	 */
-	protected const OBJECT_TYPE = 'user';
+	protected const string OBJECT_TYPE = 'user';
 
 	/**
 	 * Load the necessary hooks for user list filters.
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	public function load_hooks(): void {
 		add_action( 'restrict_manage_users', [ $this, 'render_filters_and_button' ] );
 		add_filter( 'users_list_table_query_args', [ $this, 'modify_list_table_query' ] );
@@ -140,6 +141,7 @@ class User extends ListFilters {
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	public function modify_query( $query ): void {
 		// This method is not used for the users list table
 		// The list table uses users_list_table_query_args filter instead

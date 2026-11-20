@@ -35,7 +35,7 @@ class Media extends Columns {
 	 *
 	 * @var string
 	 */
-	protected const OBJECT_TYPE = 'post';
+	protected const string OBJECT_TYPE = 'post';
 
 	/**
 	 * Load the necessary hooks for custom columns.
@@ -44,6 +44,7 @@ class Media extends Columns {
 	 *
 	 * @return void
 	 */
+	#[\Override]
 	protected function load_hooks(): void {
 		add_filter( 'manage_media_columns', [ $this, 'register_columns' ] );
 		add_filter( 'manage_upload_sortable_columns', [ $this, 'register_sortable_columns' ] );
@@ -67,10 +68,12 @@ class Media extends Columns {
 	 *
 	 * @return mixed
 	 */
+	#[\Override]
 	protected function get_meta( $object_id, string $meta_key ) {
 		return get_post_meta( (int) $object_id, $meta_key, true );
 	}
 
+	#[\Override]
 	protected function is_screen(): bool {
 		return Screen::is( $this->object_type, $this->object_subtype );
 	}
@@ -96,6 +99,7 @@ class Media extends Columns {
 	 *
 	 * @return string The rendered column content.
 	 */
+	#[\Override]
 	public function render_column_content( string $value, string $column_name, $attachment_id ): string {
 		$column = $this->get_column_by_name( $column_name, $this->object_type, $this->object_subtype );
 
@@ -165,6 +169,7 @@ class Media extends Columns {
 	 *
 	 * @return string
 	 */
+	#[\Override]
 	protected function render_default_image( $object_id, $size ): string {
 		return Image::from_attachment( (int) $object_id, $size );
 	}

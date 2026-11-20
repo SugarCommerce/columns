@@ -289,17 +289,90 @@ final class FrontDoorTest extends TestCase {
 	}
 
 	/**
-	 * A failed action says so, in core's error notice, with its message as text.
+	 * A failed action says so, in core's error notice, with its message as
+	 * text -- the message kept for the user who ran it, the address carrying
+	 * only its token.
 	 */
 	public function test_a_failed_bulk_action_prints_an_error_notice_as_text(): void {
+		BulkActions::posts(
+			'post',
+			[
+				'touch' => [
+					'label'    => 'Touch',
+					'callback' => static fn(): array => [
+						'success' => false,
+						'message' => 'Fish & chips',
+					],
+				],
+			]
+		);
+
+		$handler = $GLOBALS['rc_hooks']['handle_bulk_actions-edit-post'][0];
+
+		parse_str( (string) parse_url( $handler( 'https://example.test/', 'touch', [ 1 ] ), PHP_URL_QUERY ), $_GET );
+
+		$this->assertArrayNotHasKey( 'bulk_action_message', $_GET );
+		$this->assertSame( '1', $_GET['bulk_action_error'] );
+
+		$printed = $this->notices();
+
+		$this->assertStringStartsWith( '<div class="notice notice-error is-dismissible"><p>', $printed );
+		$this->assertStringContainsString( 'Fish &amp; chips', $printed );
+	}
+
+	/**
+	 * Words in the address are never a notice: a link anyone could write
+	 * used to put its own sentence on the list.
+	 */
+	public function test_a_message_in_the_address_is_not_shown(): void {
 		BulkActions::posts( 'post', [ 'touch' => [ 'label' => 'Touch' ] ] );
 
 		$_GET = [
 			'bulk_action_done'    => 'touch',
-			'bulk_action_error'   => '1',
-			'bulk_action_message' => 'Fish & chips',
+			'bulk_action_count'   => '1',
+			'bulk_action_message' => 'Your account is locked. Call 555-0100.',
+			'bulk_action_notice'  => 'madeup',
 		];
 
+		$printed = $this->notices();
+
+		$this->assertStringNotContainsString( 'locked', $printed );
+		$this->assertStringContainsString( '1 item processed.', $printed );
+	}
+
+	/**
+	 * Another user's token says nothing to this one.
+	 */
+	public function test_another_users_message_is_not_shown(): void {
+		BulkActions::posts(
+			'post',
+			[
+				'touch' => [
+					'label'    => 'Touch',
+					'callback' => static fn(): array => [ 'message' => 'Mine.' ],
+				],
+			]
+		);
+
+		$handler = $GLOBALS['rc_hooks']['handle_bulk_actions-edit-post'][0];
+
+		parse_str( (string) parse_url( $handler( 'https://example.test/', 'touch', [ 1 ] ), PHP_URL_QUERY ), $_GET );
+
+		$GLOBALS['rc_user_id'] = 2;
+
+		$this->assertStringNotContainsString( 'Mine.', $this->notices() );
+
+		$GLOBALS['rc_user_id'] = 1;
+
+		$this->assertStringContainsString( 'Mine.', $this->notices() );
+	}
+
+	/**
+	 * What the post list's notices print.
+	 *
+	 * @return string
+	 */
+	private function notices(): string {
 		$GLOBALS['rc_screen'] = (object) [
 			'id'        => 'edit-post',
 			'base'      => 'edit',
@@ -313,10 +386,7 @@ final class FrontDoorTest extends TestCase {
 			$notice();
 		}
 
-		$printed = (string) ob_get_clean();
-
-		$this->assertStringStartsWith( '<div class="notice notice-error is-dismissible"><p>', $printed );
-		$this->assertStringContainsString( 'Fish &amp; chips', $printed );
+		return (string) ob_get_clean();
 	}
 
 	/**
