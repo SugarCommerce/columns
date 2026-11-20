@@ -135,32 +135,6 @@ final class RowActions {
 	}
 
 	/**
-	 * An admin-ajax URL for an action on one object, with its nonce.
-	 *
-	 * The nonce action is `{$action}_{$id}`; check it the same way in the
-	 * handler. `$args` adds to the query string, or replaces any of the
-	 * three.
-	 *
-	 * @param string               $action The admin-ajax action.
-	 * @param int                  $id     The object.
-	 * @param array<string, mixed> $args   More query arguments.
-	 *
-	 * @return string
-	 */
-	public static function ajax_url( string $action, int $id, array $args = [] ): string {
-		$args = array_merge(
-			[
-				'action' => $action,
-				'id'     => $id,
-				'nonce'  => wp_create_nonce( "{$action}_{$id}" ),
-			],
-			$args
-		);
-
-		return add_query_arg( $args, admin_url( 'admin-ajax.php' ) );
-	}
-
-	/**
 	 * A meta value, through the object type's own function.
 	 *
 	 * @param string $object_type post, attachment, comment, user or term.

@@ -299,10 +299,9 @@ For an action that flips a flag:
 ],
 ```
 
-Both take `post`, `attachment`, `comment`, `user` or `term`.
-`RowActions::ajax_url( $action, $id, $args )` builds an admin-ajax URL with
-`action`, `id` and a nonce for `{$action}_{$id}`, for a plain link to an
-endpoint of a plugin's own; anything a script calls should be a REST route.
+Both take `post`, `attachment`, `comment`, `user` or `term`. An action of
+your own that a script calls is a REST route -- `'ajax' => true` here already
+is one -- never admin-ajax.
 
 ## A table of your own
 

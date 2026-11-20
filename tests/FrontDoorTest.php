@@ -478,17 +478,6 @@ final class FrontDoorTest extends TestCase {
 	}
 
 	/**
-	 * The admin-ajax URL carries the action, the id and a nonce for both,
-	 * and extra arguments add to or replace them.
-	 */
-	public function test_ajax_url(): void {
-		$url = RowActions::ajax_url( 'my_toggle', 12, [ 'flag' => 'on' ] );
-
-		$this->assertSame( 'https://example.test/wp-admin/admin-ajax.php?action=my_toggle&id=12&nonce=nonce%3Amy_toggle_12&flag=on', $url );
-		$this->assertStringContainsString( 'nonce=mine', RowActions::ajax_url( 'my_toggle', 12, [ 'nonce' => 'mine' ] ) );
-	}
-
-	/**
 	 * A post, as core passes one to the row action filters.
 	 *
 	 * @param int    $id   Its id.
