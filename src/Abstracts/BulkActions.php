@@ -206,24 +206,24 @@ abstract class BulkActions {
 			// Handle response
 			if ( is_array( $result ) ) {
 				if ( isset( $result['message'] ) ) {
-					$redirect_to = add_query_arg( 'bulk_action_notice', self::keep_message( (string) $result['message'] ), $redirect_to );
+					$redirect_to = add_query_arg( self::arg( 'notice' ), self::keep_message( (string) $result['message'] ), $redirect_to );
 				}
 				if ( isset( $result['success'] ) && ! $result['success'] ) {
-					$redirect_to = add_query_arg( 'bulk_action_error', '1', $redirect_to );
+					$redirect_to = add_query_arg( self::arg( 'error' ), '1', $redirect_to );
 				}
 			}
 
 			// Add count
-			$redirect_to = add_query_arg( 'bulk_action_count', count( $object_ids ), $redirect_to );
-			$redirect_to = add_query_arg( 'bulk_action_done', $doaction, $redirect_to );
+			$redirect_to = add_query_arg( self::arg( 'count' ), count( $object_ids ), $redirect_to );
+			$redirect_to = add_query_arg( self::arg( 'done' ), $doaction, $redirect_to );
 
 		} catch ( Throwable $e ) {
 			// The callback's exception is somebody else's -- a query, a path --
 			// so its words are shown only where core shows errors.
 			$redirect_to = add_query_arg(
 				[
-					'bulk_action_error'  => '1',
-					'bulk_action_notice' => self::keep_message(
+					self::arg( 'error' )  => '1',
+					self::arg( 'notice' ) => self::keep_message(
 						defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_DISPLAY' ) && WP_DEBUG_DISPLAY
 							? $e->getMessage()
 							: __( 'The action could not be completed.', 'sugarcommerce' )
@@ -268,12 +268,29 @@ abstract class BulkActions {
 	}
 
 	/**
+	 * A query argument the redirect after an action carries, named for this
+	 * build: `sugarcommerce_columns_bulk_done` unprefixed.
+	 *
+	 * Core's list screens are shared. Two plugins each bundling a copy and
+	 * both adding a bulk action to the posts list would otherwise read each
+	 * other's `bulk_action_done` -- and one copy's token, looked up in its
+	 * own transients, told the other nothing.
+	 *
+	 * @param string $name done, count, error or notice.
+	 *
+	 * @return string
+	 */
+	public static function arg( string $name ): string {
+		return Runtime::key( 'bulk_' . $name );
+	}
+
+	/**
 	 * Display admin notice after bulk action.
 	 *
 	 * @return void
 	 */
 	public function display_admin_notice(): void {
-		if ( empty( $_GET['bulk_action_done'] ) ) {
+		if ( empty( $_GET[ self::arg( 'done' ) ] ) ) {
 			return;
 		}
 
@@ -284,12 +301,12 @@ abstract class BulkActions {
 			return;
 		}
 
-		$action_key = sanitize_key( $_GET['bulk_action_done'] );
-		$count      = isset( $_GET['bulk_action_count'] ) ? absint( $_GET['bulk_action_count'] ) : 0;
-		$is_error   = isset( $_GET['bulk_action_error'] );
+		$action_key = sanitize_key( $_GET[ self::arg( 'done' ) ] );
+		$count      = isset( $_GET[ self::arg( 'count' ) ] ) ? absint( $_GET[ self::arg( 'count' ) ] ) : 0;
+		$is_error   = isset( $_GET[ self::arg( 'error' ) ] );
 		// The message is the one this user's action kept, named by its
 		// token; words in the address are never shown.
-		$token   = isset( $_GET['bulk_action_notice'] ) ? sanitize_key( wp_unslash( $_GET['bulk_action_notice'] ) ) : '';
+		$token   = isset( $_GET[ self::arg( 'notice' ) ] ) ? sanitize_key( wp_unslash( $_GET[ self::arg( 'notice' ) ] ) ) : '';
 		$message = '' === $token ? '' : sanitize_text_field( (string) get_transient( self::message_key( $token ) ) );
 
 		$actions = self::get_actions( $this->object_type, $this->object_subtype );

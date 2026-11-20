@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace SugarCommerce\Columns\Tests;
 
+use SugarCommerce\Columns\Abstracts\BulkActions as BulkActionsBase;
 use SugarCommerce\Columns\BulkActions;
 use SugarCommerce\Columns\Columns;
 use SugarCommerce\Columns\Filters;
@@ -265,8 +266,8 @@ final class FrontDoorTest extends TestCase {
 		BulkActions::posts( [ 'post', 'page' ], [ 'touch' => [ 'label' => 'Touch' ] ] );
 
 		$_GET = [
-			'bulk_action_done'  => 'touch',
-			'bulk_action_count' => '2',
+			BulkActionsBase::arg( 'done' )  => 'touch',
+			BulkActionsBase::arg( 'count' ) => '2',
 		];
 
 		$GLOBALS['rc_screen'] = (object) [
@@ -312,7 +313,14 @@ final class FrontDoorTest extends TestCase {
 		parse_str( (string) parse_url( $handler( 'https://example.test/', 'touch', [ 1 ] ), PHP_URL_QUERY ), $_GET );
 
 		$this->assertArrayNotHasKey( 'bulk_action_message', $_GET );
-		$this->assertSame( '1', $_GET['bulk_action_error'] );
+		$this->assertSame( '1', $_GET[ BulkActionsBase::arg( 'error' ) ] );
+
+		// Named for this build: another plugin's copy, on the same core
+		// list, never reads them as its own.
+		$this->assertSame(
+			[ 'sugarcommerce_columns_bulk_notice', 'sugarcommerce_columns_bulk_error', 'sugarcommerce_columns_bulk_count', 'sugarcommerce_columns_bulk_done' ],
+			array_keys( $_GET )
+		);
 
 		$printed = $this->notices();
 
@@ -328,10 +336,10 @@ final class FrontDoorTest extends TestCase {
 		BulkActions::posts( 'post', [ 'touch' => [ 'label' => 'Touch' ] ] );
 
 		$_GET = [
-			'bulk_action_done'    => 'touch',
-			'bulk_action_count'   => '1',
+			BulkActionsBase::arg( 'done' )    => 'touch',
+			BulkActionsBase::arg( 'count' )   => '1',
 			'bulk_action_message' => 'Your account is locked. Call 555-0100.',
-			'bulk_action_notice'  => 'madeup',
+			BulkActionsBase::arg( 'notice' )  => 'madeup',
 		];
 
 		$printed = $this->notices();

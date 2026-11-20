@@ -321,18 +321,25 @@ script handle and keys, worked out from its prefixed namespace
 (`Utils\Runtime`): `sugarcommerce-columns` unprefixed,
 `{prefix}-sugarcommerce-columns` in a prefixed build. The script's settings
 are kept per copy in `window.SugarCommerceColumns[handle]`, each link names
-its copy, and the script binds its click handler once however many copies
-load it.
+its copy (`data-config="{handle}"`), and each copy's script answers its own
+links only -- another plugin's copy, of whatever version, never runs this
+one's actions. The query arguments a bulk action's redirect carries are the
+build's too (`sugarcommerce_columns_bulk_done`, `_count`, `_error`,
+`_notice`; `Abstracts\BulkActions::arg()`), so two copies adding bulk actions to the
+same core list never read each other's.
 
 ## The script
 
-`assets/js/row-actions.js` and `assets/js/row-actions/run.js`, ES modules
+`assets/js/row-actions.js`, `assets/js/row-actions/listen.js` and
+`assets/js/row-actions/run.js`, ES modules
 built by `@wordpress/scripts` into `assets/build/row-actions.js` (with its
 `.asset.php`: `wp-api-fetch`, `wp-dom-ready`), registered through
-`SugarCommerce\Plugin\Assets::enqueue_built_script()`. No jQuery. One click
-handler on the document for every copy (`window.SugarCommerceColumnsRowActions`
-is the flag); each link names its copy's settings in
-`window.SugarCommerceColumns[handle]` (`path`, `strings`, `icons`). A notice
+`SugarCommerce\Plugin\Assets::enqueue_built_script()`. No jQuery. The script
+finds its handle from its own `<script>` element (`{handle}-js`), and binds one
+click handler for the links that name it (`row-actions/listen.js`), flagged
+`bound` in its own entry of `window.SugarCommerceColumns[handle]` beside the
+settings PHP printed there (`path`, `strings`, `icons`). No other page
+global is set (`tests/PageGlobalsTest.php`). A notice
 goes under the screen's heading, as text, and core is told
 (`wp-updates-notice-added`) so it gets its dismiss button.
 
