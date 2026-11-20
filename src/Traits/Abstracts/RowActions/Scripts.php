@@ -11,8 +11,8 @@ namespace SugarCommerce\Columns\Traits\Abstracts\RowActions;
 
 use SugarCommerce\Columns\Rest\RowActionRoute;
 use SugarCommerce\Columns\Utils\Runtime;
-use SugarCommerce\Fields\Icons\Icons;
 use SugarCommerce\Plugin\Assets;
+use SugarCommerce\Plugin\Build;
 
 /**
  * The script and stylesheet a screen with row actions loads, the settings
@@ -120,8 +120,10 @@ trait Scripts {
 	 * @return string Markup, or '' when there is no icon to draw.
 	 */
 	protected static function icon( $value, array $args = [] ): string {
-		if ( class_exists( Icons::class ) ) {
-			return Icons::render( $value, $args );
+		$icons = self::icons();
+
+		if ( null !== $icons ) {
+			return $icons::render( $value, $args );
 		}
 
 		if ( ! is_string( $value ) ) {
@@ -158,8 +160,23 @@ trait Scripts {
 	 * @return string
 	 */
 	protected static function state_icon( string $heroicon, string $dashicon, string $css_class ): string {
-		$value = class_exists( Icons::class ) ? 'heroicons-outline:' . $heroicon : $dashicon;
+		$value = null !== self::icons() ? 'heroicons-outline:' . $heroicon : $dashicon;
 
 		return self::icon( $value, [ 'class' => $css_class ] );
+	}
+
+	/**
+	 * sugarcommerce/fields' Icons in this build, when the build has it.
+	 *
+	 * Asked through Build::sibling() rather than imported: a plugin that
+	 * bundles this library without fields would otherwise find SugarCart's
+	 * unprefixed copy.
+	 *
+	 * @return class-string|null
+	 */
+	private static function icons(): ?string {
+		$icons = Build::sibling( __NAMESPACE__, 5, 'Fields\\Icons\\Icons' );
+
+		return class_exists( $icons ) ? $icons : null;
 	}
 }

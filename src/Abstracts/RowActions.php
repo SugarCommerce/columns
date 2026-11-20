@@ -22,7 +22,6 @@ use SugarCommerce\Columns\Rest\RowActionRoute;
 use SugarCommerce\Columns\Support\Position;
 use SugarCommerce\Columns\Traits\Abstracts\RowActions\Links;
 use SugarCommerce\Columns\Traits\Abstracts\RowActions\Scripts;
-use SugarCommerce\Fields\Icons\Icons;
 
 /**
  * Class RowActions
